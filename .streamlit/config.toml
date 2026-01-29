@@ -1,0 +1,22 @@
+[theme]
+# Flexoki Light Scheme (Academic/Paper Style)
+base = "light"
+
+# Cor Primária: Flexoki Blue-600
+primaryColor = "#205EA6"
+
+# Cor de Fundo: Flexoki Paper (Um creme suave)
+backgroundColor = "#FFFCF0"
+
+# Cor de Fundo Secundária: Flexoki Base-50
+secondaryBackgroundColor = "#F2F0E5"
+
+# Cor do Texto: Flexoki Black
+textColor = "#100F0F"
+
+# Fonte
+font = "sans serif"
+
+[client]
+showErrorDetails = false
+toolbarMode = "minimal"

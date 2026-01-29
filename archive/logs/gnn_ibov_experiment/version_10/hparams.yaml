@@ -1,0 +1,10 @@
+attention_heads: 4
+dropout: 0.2
+encoder_type: gatv2
+hidden_dim: 32
+learning_rate: 0.001
+node_feature_dim: 19
+num_layers: 3
+transaction_cost_bps: 0.0
+turnover_penalty: 0.0
+weight_decay: 0.0001

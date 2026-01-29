@@ -1,0 +1,1 @@
+{"model":"gnn-ibov-epoch=17-val_return=0.0000.ckpt","encoder_type":"gatv2","turnover_penalty":0.0,"period_start":"2014-01-31","period_end":"2024-12-30","total_return":-0.176434803,"sharpe_ratio":-0.7528216277,"max_drawdown":-0.2196299999,"avg_daily_turnover":0.0740992007,"benchmark_return":1.9012016243,"alpha":-2.0776364273}
