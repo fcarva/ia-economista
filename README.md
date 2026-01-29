@@ -22,6 +22,15 @@ python -m cointegration_gnn.demos.ibov_demo
 # Ver resultados em outputs/
 ```
 
+### 🧰 Workflow Rápido (Makefile)
+
+```bash
+make install        # install projeto (editable)
+make dashboard      # Streamlit UI
+make backtest       # rodar backtest
+make train          # rodar treinamento
+```
+
 ---
 
 ## 📁 Estrutura do Projeto
