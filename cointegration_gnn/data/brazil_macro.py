@@ -223,10 +223,11 @@ class BrazilMacroFetcher:
              # Better: Calculate on the non-NaN values of ipca_mom before ffill if possible.
              # But here we are after join.
              
-             # Let's try to calculate it simply:
-             # 1. Identify valid MoM dates (where value changes or is present)
-             # Actually, simpler: Just ensure we have it. If 0.00%, it's bad.
-             pass
+             monthly_ipca = macro_df['ipca_mom'].dropna().resample('M').last()
+             if not monthly_ipca.empty:
+                 ipca_12m = (1 + monthly_ipca).rolling(12).apply(np.prod, raw=True) - 1
+                 ipca_12m = ipca_12m.reindex(macro_df.index, method='ffill')
+                 macro_df['ipca_12m'] = ipca_12m.fillna(0.0)
              
         # Feature Engineering: Stationarity
             
