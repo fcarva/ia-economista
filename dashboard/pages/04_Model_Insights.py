@@ -18,7 +18,7 @@ st.set_page_config(page_title="Model Insights", page_icon="🧠", layout="wide")
 load_css()
 
 st.title("🧠 Model Insights (XAI)")
-st.markdown("### Interpretabilidade do GNN")
+st.markdown("### GNN Interpretability & Signal Drivers")
 
 # Sidebar: Select Model
 model_dir = Path(__file__).parent.parent.parent / "models"
@@ -62,8 +62,11 @@ def load_model_and_importance(model_path):
     features = loader.compute_features(prices, returns)
     
     # Fetch Macro
-    macro_fetcher = BrazilMacroFetcher(cache_path="data/brazil_macro.csv")
-    macro_df = macro_fetcher.fetch_all(start_date=start_date.strftime("%Y-%m-%d"))
+    try:
+        macro_fetcher = BrazilMacroFetcher(cache_path="data/brazil_macro.csv")
+        macro_df = macro_fetcher.fetch_all(start_date=start_date.strftime("%Y-%m-%d"))
+    except Exception:
+        macro_df = pd.DataFrame(index=features.index)
     
     # Add Macro to Features (Mirroring run_backtest logic)
     # Need to verify if add_macro_to_node_features is importable or replicate logic
@@ -86,6 +89,9 @@ def load_model_and_importance(model_path):
         
     features = add_macro_local(features, macro_df)
     
+    if features.empty:
+        raise ValueError("Feature matrix is empty. Check data availability.")
+
     # 3. Graph
     coint = CointegrationGraph(tickers=default_config.data.tickers)
     date = features.index[-1]
@@ -100,6 +106,8 @@ def load_model_and_importance(model_path):
     
     # Drop non-feature columns if any
     safe_features = features.select_dtypes(include=[np.number])
+    if safe_features.empty:
+        raise ValueError("No numeric features available for XAI.")
     
     x_rows = [safe_features.loc[date].values for t in default_config.data.tickers]
     x = torch.tensor(np.stack(x_rows), dtype=torch.float, requires_grad=True)
@@ -140,7 +148,7 @@ def load_model_and_importance(model_path):
         macro_names = [f"Macro_{i}" for i in range(num_features - 8)]
         # Try to guess specific names if standard 5 are present
         if num_features == 13:
-             macro_names = ['Selic', 'USD/BRL', 'IBC-Br', 'IPCA MoM', 'IPCA 12m']
+            macro_names = ["Selic", "USD/BRL", "IBC-Br", "IPCA MoM", "IPCA 12m"]
         feat_names.extend(macro_names)
     else:
         feat_names = [f"Feature_{i}" for i in range(num_features)]
@@ -158,74 +166,71 @@ def load_model_and_importance(model_path):
 
 if not model_files:
     st.error("No models found.")
-else:
-    model_path = str(model_dir / selected_model_name)
-    
-    if st.button("🔍 Analyze Model Logic"):
-        with st.spinner("Calculating Feature Gradients..."):
-            try:
-                df_imp, signals = load_model_and_importance(model_path)
-                
-                # Layout
-                col1, col2 = st.columns([2, 1])
-                
-                with col1:
-                    st.subheader("Global Feature Importance")
-                    st.caption("Gradient x Input | Higher = More Impact on Signal")
-                    
-                    # Create custom bar chart with Flexoki palette
-                    # Map importance to specific Flexoki colors based on value
-                    
-                    fig = px.bar(
-                        df_imp, 
-                        x="Importance", 
-                        y="Feature", 
-                        orientation='h',
-                        text_auto='.3f'
-                    )
-                    
-                    # Update traces for consistent Flexoki look
-                    fig.update_traces(
-                        marker_color='#205EA6',  # Flexoki Blue
-                        textfont_size=12,
-                        textangle=0,
-                        textposition="outside",
-                        cliponaxis=False
-                    )
-                    
-                    fig = make_flexoki_chart(fig)
-                    fig.update_layout(yaxis=dict(categoryorder='total ascending'))
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                with col2:
-                    st.subheader("Trading Logic Diagnosis")
-                    
-                    # Styled Card for Top Driver
-                    top_f = df_imp.iloc[0]
-                    st.container(border=True).metric("Top Driver", top_f["Feature"], f"{top_f['Importance']:.4f}")
-                    
-                    # Logic Checks
-                    st.markdown("### 🕵️ Logic Check")
-                    
-                    # Create a mini table for hypothesis
-                    checks = [
-                        ("Mean Reversion", "Z-Score (20d)", "Is it Top 3?"),
-                        ("Trend Following", "Momentum (5d)", "Is it Top 3?"),
-                        ("Risk Aversion", "Volatility (20d)", "Is it significant?")
-                    ]
-                    
-                    for name, feat, q in checks:
-                        is_top = feat in df_imp.head(3)["Feature"].values
-                        icon = "✅" if is_top else "⚪"
-                        st.markdown(f"**{name}**: {icon} ({feat})")
-                    
-                    st.info("If Z-Score is top driver, the model is likely trading cointegration spreads effectively.")
-                    
-                    st.divider()
-                    st.caption("Analysis based on latest validation date snapshot.")
-                    
-            except Exception as e:
-                st.error(f"Error during analysis: {e}")
-    else:
-        st.info("Click 'Analyze Model Logic' to run the XAI module.")
+    st.stop()
 
+model_path = str(model_dir / selected_model_name)
+
+if st.button("🔍 Analyze Model Logic"):
+    with st.spinner("Calculating Feature Gradients..."):
+        try:
+            df_imp, signals = load_model_and_importance(model_path)
+
+            # Layout
+            col1, col2 = st.columns([2, 1])
+
+            with col1:
+                st.subheader("Global Feature Importance")
+                st.caption("Gradient x Input | Higher = More Impact on Signal")
+
+                fig = px.bar(
+                    df_imp,
+                    x="Importance",
+                    y="Feature",
+                    orientation="h",
+                    text_auto=".3f",
+                )
+
+                fig.update_traces(
+                    marker_color="#205EA6",
+                    textfont_size=12,
+                    textangle=0,
+                    textposition="outside",
+                    cliponaxis=False,
+                )
+
+                fig = make_flexoki_chart(fig)
+                fig.update_layout(yaxis=dict(categoryorder="total ascending"))
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col2:
+                st.subheader("Trading Logic Diagnosis")
+
+                top_f = df_imp.iloc[0]
+                st.container(border=True).metric(
+                    "Top Driver", top_f["Feature"], f"{top_f['Importance']:.4f}"
+                )
+
+                st.markdown("### 🕵️ Logic Check")
+
+                checks = [
+                    ("Mean Reversion", "Z-Score (20d)", "Is it Top 3?"),
+                    ("Trend Following", "Momentum (5d)", "Is it Top 3?"),
+                    ("Risk Aversion", "Volatility (20d)", "Is it significant?"),
+                ]
+
+                for name, feat, q in checks:
+                    is_top = feat in df_imp.head(3)["Feature"].values
+                    icon = "✅" if is_top else "⚪"
+                    st.markdown(f"**{name}**: {icon} ({feat})")
+
+                st.info(
+                    "If Z-Score is top driver, the model is likely trading cointegration spreads effectively."
+                )
+
+                st.divider()
+                st.caption("Analysis based on latest validation date snapshot.")
+
+        except Exception as e:
+            st.error(f"Error during analysis: {e}")
+else:
+    st.info("Click 'Analyze Model Logic' to run the XAI module.")

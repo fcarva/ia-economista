@@ -8,7 +8,7 @@ from cointegration_gnn.config import default_config
 from dashboard.utils import load_css, make_flexoki_chart
 
 # Page Config
-st.set_page_config(page_title="Data Universe", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Asset Universe", page_icon="📊", layout="wide")
 load_css()
 
 # --- 1. HELPER FUNCTIONS ---
@@ -61,12 +61,12 @@ def get_stationarity_diagnosis(prices_df):
     return pd.DataFrame(results).set_index("Ticker")
 
 # --- 2. MAIN UI ---
-st.title("📊 Data Universe & Stationarity")
-st.markdown("### Asset Qualification Engine")
+st.title("📊 Asset Universe & Stationarity")
+st.markdown("### Data Quality & Integration Order Diagnostics")
 
 # Sidebar
 with st.sidebar:
-    st.header("⚙️ Universe Config")
+    st.header("⚙️ Universe Configuration")
     selected_tickers = st.multiselect(
         "Select Assets", 
         default_config.data.tickers,

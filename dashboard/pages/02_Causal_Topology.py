@@ -21,8 +21,8 @@ from dashboard.utils import load_css
 st.set_page_config(page_title="Causal Topology", page_icon="🕸️", layout="wide")
 load_css()
 
-st.title("🕸️ Causal Network Topology")
-st.markdown("### Estrutura de Influência Lead-Lag (Gitcoin Style)")
+st.title("🕸️ Causal Topology")
+st.markdown("### Lead-Lag Influence Structure (Research View)")
 
 # Sidebar Controls
 with st.sidebar:
@@ -45,6 +45,9 @@ def build_lead_lag_network(threshold_val):
         start=default_config.data.train_start, 
         end=default_config.data.train_end
     )
+
+    if returns.empty:
+        return nx.DiGraph()
     
     # 1. Calculate Cross-Correlation Lag Matrix
     tickers = default_config.data.tickers
@@ -201,6 +204,8 @@ col3.metric("Network Density", f"{nx.density(G):.2%}" if len(G.nodes) > 0 else "
 if len(G.nodes) > 0:
     top_influencer = max(dict(G.out_degree(weight='weight')), key=dict(G.out_degree(weight='weight')).get)
     col4.metric("Top Influencer (Source)", top_influencer.replace('.SA', ''))
+else:
+    col4.metric("Top Influencer (Source)", "N/A")
 
 st.divider()
 
