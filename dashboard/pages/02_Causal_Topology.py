@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Causal Network Topology (Gitcoin-Style Force-Directed Graph)
 =============================================================
@@ -21,14 +22,14 @@ from dashboard.utils import load_css
 st.set_page_config(page_title="Causal Topology", page_icon="🕸️", layout="wide")
 load_css()
 
-st.title("🕸️ Causal Network Topology")
-st.markdown("### Estrutura de Influência Lead-Lag (Gitcoin Style)")
+st.title("🕸️ Causal Topology")
+st.markdown("### Lead-Lag Influence Structure (Research View)")
 
 # Sidebar Controls
 with st.sidebar:
     st.header("⚙️ Graph Physics")
     # Tweak default threshold to be meaningful for daily returns
-    threshold = st.slider("Correlation Threshold (Lead-Lag)", 0.0, 0.5, 0.15, step=0.01)
+    threshold = st.slider("Correlation Threshold (Lead-Lag)", 0.0, 0.5, 0.10, step=0.01)
     physics_gravity = st.slider("Gravity (Clustering)", -5000, -100, -1200)
     node_size_scale = st.slider("Node Size Scale", 10, 100, 30)
     
@@ -45,6 +46,9 @@ def build_lead_lag_network(threshold_val):
         start=default_config.data.train_start, 
         end=default_config.data.train_end
     )
+
+    if returns.empty:
+        return nx.DiGraph()
     
     # 1. Calculate Cross-Correlation Lag Matrix
     tickers = default_config.data.tickers
@@ -162,12 +166,12 @@ if len(G.nodes) > 0:
     for u, v, d in G.edges(data=True):
         weight = d.get('weight', 0.1)
         # Width proportional to correlation
-        width = max(0.5, weight * 10)
+        width = max(1.5, weight * 12)
         
         edges.append(Edge(
             source=u,
             target=v,
-            color="#E6E4D9",  # Subtle edges
+            color="#6F6E69",  # Darker edges for visibility
             width=width,
             type="CURVE_SMOOTH" 
         ))
@@ -183,7 +187,7 @@ config = Config(
     highlightColor="#F7A7A6",
     collapsible=False,
     node={'labelProperty': 'label'},
-    link={'labelProperty': 'label', 'renderLabel': False},
+    link={'labelProperty': 'label', 'renderLabel': False, 'color': '#6F6E69'},
     # Physics engine properties
     gravity=physics_gravity, 
     minVelocity=0.75,
@@ -201,6 +205,8 @@ col3.metric("Network Density", f"{nx.density(G):.2%}" if len(G.nodes) > 0 else "
 if len(G.nodes) > 0:
     top_influencer = max(dict(G.out_degree(weight='weight')), key=dict(G.out_degree(weight='weight')).get)
     col4.metric("Top Influencer (Source)", top_influencer.replace('.SA', ''))
+else:
+    col4.metric("Top Influencer (Source)", "N/A")
 
 st.divider()
 

@@ -1,4 +1,4 @@
-
+# -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
 import glob
@@ -7,10 +7,10 @@ import json
 import plotly.express as px
 from dashboard.utils import load_css, make_flexoki_chart
 
-st.set_page_config(page_title="Model Metrics", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Performance Metrics", page_icon="📈", layout="wide")
 load_css()
 
-st.title("📈 Model Metrics & Backtest")
+st.title("📈 Performance Metrics & Backtest")
 
 # 1. Training Analysis
 st.header("1. Training Convergence")

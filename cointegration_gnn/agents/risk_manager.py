@@ -95,6 +95,7 @@ class RiskManagerAgent:
         max_drawdown: float = 0.15,
         var_scaling_threshold: float = 0.015,
         drawdown_scaling_threshold: float = 0.10,
+        min_confidence: float = 0.15,
     ) -> None:
         """Initialize Risk Manager.
         
@@ -114,6 +115,7 @@ class RiskManagerAgent:
         self.max_drawdown = max_drawdown
         self.var_threshold = var_scaling_threshold
         self.dd_threshold = drawdown_scaling_threshold
+        self.min_confidence = min_confidence
         
         self.state = RiskState()
     
@@ -147,6 +149,12 @@ class RiskManagerAgent:
         
         # 1. Compute global scaling factor based on risk
         scaling_factor = self._compute_scaling_factor(risk_metrics)
+        regime_scale = self._regime_scaling(analyst_output.regime)
+        if regime_scale < 1.0:
+            actions_taken.append(
+                f"Scaled signals by {regime_scale:.2f} due to regime={analyst_output.regime}"
+            )
+        scaling_factor *= regime_scale
         if scaling_factor < 1.0:
             actions_taken.append(f"Scaled all signals by {scaling_factor:.2f} due to elevated risk")
         
@@ -167,7 +175,7 @@ class RiskManagerAgent:
             
             # Check confidence threshold
             confidence = analyst_output.confidence.get(ticker, 0.0)
-            if confidence < 0.2 and abs(scaled_signal) > 0.05:
+            if confidence < self.min_confidence and abs(scaled_signal) > 0.05:
                 rejected[ticker] = f"Low confidence ({confidence:.2f})"
                 scaled_signal = 0.0
             
@@ -294,3 +302,11 @@ class RiskManagerAgent:
         
         # Take the minimum (most conservative)
         return min(var_scale, dd_scale, 1.0)
+
+    def _regime_scaling(self, regime: str) -> float:
+        """Apply a light regime-based scaling to exposure."""
+        if regime == "high_correlation":
+            return 0.8
+        if regime == "dispersion":
+            return 1.0
+        return 1.0

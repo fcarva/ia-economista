@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -8,7 +9,7 @@ from cointegration_gnn.config import default_config
 from dashboard.utils import load_css, make_flexoki_chart
 
 # Page Config
-st.set_page_config(page_title="Data Universe", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Asset Universe", page_icon="📊", layout="wide")
 load_css()
 
 # --- 1. HELPER FUNCTIONS ---
@@ -38,35 +39,35 @@ def get_stationarity_diagnosis(prices_df):
         # Classificação Econômica & CALL TO ACTION
         if not price_is_stat and ret_is_stat:
             order = "I(1)"
-            status = "✅ DEPLOY ALPHA" # CTA Agressivo: "Execute a Estratégia"
-            color = "#24837B" # Green (Flexoki)
+            status = "Deploy"
+            color = "#24837B"  # Green (Flexoki)
         elif price_is_stat:
             order = "I(0)"
-            status = "⚠️ AVOID (Mean Rev)" # CTA: "Evite"
-            color = "#DA702C" # Orange
+            status = "Avoid"
+            color = "#DA702C"  # Orange
         else:
             order = "I(2+)"
-            status = "⛔ HALT (Explosive)" # CTA: "Pare"
-            color = "#D14D41" # Red
+            status = "Halt"
+            color = "#D14D41"  # Red
             
         results.append({
             "Ticker": ticker,
             "Price p-val": p_price,
             "Return p-val": p_ret,
             "Order": order,
-            "Action": status, # Renomeado de Status para Action
-            "_color": color # Coluna oculta para styling
+            "Action": status,
+            "_color": color
         })
     
     return pd.DataFrame(results).set_index("Ticker")
 
 # --- 2. MAIN UI ---
-st.title("📊 Data Universe & Stationarity")
-st.markdown("### Asset Qualification Engine")
+st.title("📊 Asset Universe & Stationarity")
+st.markdown("### Data Quality & Integration Order Diagnostics")
 
 # Sidebar
 with st.sidebar:
-    st.header("⚙️ Universe Config")
+    st.header("⚙️ Universe Configuration")
     selected_tickers = st.multiselect(
         "Select Assets", 
         default_config.data.tickers,
@@ -106,24 +107,32 @@ with col_chart:
 # --- 4. STATIONARITY DIAGNOSIS (CTA MODE) ---
 with col_stat:
     st.subheader("🧬 Signal Qualification")
-    st.markdown("ADF Root Test Results:")
+    st.markdown("ADF Root Test Results")
     
     # Run Diagnosis
     diag_df = get_stationarity_diagnosis(prices)
     
     # Apply Pandas Styler for the "Badge" look
     def highlight_status(row):
-        # Lookup color from original dataframe using index
-        color = diag_df.loc[row.name, '_color']
-        # Aplica a cor na coluna 'Action' com peso bold
-        return [f'color: {color}; font-weight: 800; letter-spacing: 0.05em;' if col == 'Action' else '' for col in row.index]
+        color = diag_df.loc[row.name, "_color"]
+        return [
+            (
+                f"color: {color}; font-weight: 700; "
+                f"background-color: #F2F0E5; border-radius: 4px;"
+            )
+            if col == "Action"
+            else ""
+            for col in row.index
+        ]
 
     # Display clean table
     st.dataframe(
-        diag_df[["Price p-val", "Return p-val", "Order", "Action"]].style.apply(highlight_status, axis=1)
-        .format({"Price p-val": "{:.3f}", "Return p-val": "{:.1e}"}),
+        diag_df[["Price p-val", "Return p-val", "Order", "Action"]]
+        .style.apply(highlight_status, axis=1)
+        .format({"Price p-val": "{:.4f}", "Return p-val": "{:.1e}"}),
         use_container_width=True,
-        height=400
+        height=400,
+        hide_index=True,
     )
     
     st.caption("**Protocolo:** Ativos **I(1)** são elegíveis para formação de pares (Cointegração). Ativos **I(0)** já reverteram à média e não possuem prêmio de risco.")

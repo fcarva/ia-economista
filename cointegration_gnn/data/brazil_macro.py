@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 import warnings
 import requests
+from pathlib import Path
 
 # Try to import required libraries
 try:
@@ -46,44 +47,55 @@ class IpeadataClient:
     Documentação: http://www.ipeadata.gov.br/api/
     """
     BASE_URL = "http://www.ipeadata.gov.br/api/odata4/ValoresSerie(SERCODIGO='{code}')"
+    MAX_RETRIES = 3
     
     def fetch_series(self, code: str, start_date: str) -> pd.DataFrame:
         """Busca série temporal e retorna DataFrame com colunas ['date', 'val']."""
         print(f"      [IPEADATA] Buscando série {code}...")
         url = self.BASE_URL.format(code=code)
-        try:
-            # IPEADATA requires generic user agent sometimes, or accept json
-            # OData v4 returns JSON by default or with $format=json
-            params = {"$format": "json"}
-            # Ensure headers to avoid 406 equivalent or content negotiation issues
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-                "Accept": "application/json"
-            } # Ensure headers to avoid 406
-            response = requests.get(url, params=params, headers=headers, timeout=20)
-            if response.status_code == 200:
-                data = response.json()
-                if 'value' in data:
-                    df = pd.DataFrame(data['value'])
-                    
-                    # Normalize columns to upper just in case
-                    df.columns = [str(c).upper() for c in df.columns]
-                    
-                    if 'VALDATA' in df.columns and 'VALVALOR' in df.columns:
-                        # Robust datetime parsing
-                        df['date'] = pd.to_datetime(df['VALDATA'], utc=True, errors='coerce').dt.tz_localize(None)
-                        df['val'] = pd.to_numeric(df['VALVALOR'], errors='coerce')
-                        
-                        # Drop invalid rows
-                        df = df.dropna(subset=['date', 'val'])
-                        
-                        df = df[['date', 'val']].set_index('date').sort_index()
-                        df = df[df.index >= pd.to_datetime(start_date)]
-                        return df
-            
-            print(f"      [X] IPEADATA Error {code}: Status {response.status_code}. Data keys: {list(data.keys()) if response.status_code == 200 else 'N/A'}")
-        except Exception as e:
-            print(f"      [X] IPEADATA Exception {code}: {e}")
+        # IPEADATA requires generic user agent sometimes, or accept json
+        params = {"$format": "json"}
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "Accept": "application/json",
+        }
+        for attempt in range(1, self.MAX_RETRIES + 1):
+            try:
+                response = requests.get(url, params=params, headers=headers, timeout=20)
+                if response.status_code == 200:
+                    data = response.json()
+                    if "value" in data:
+                        df = pd.DataFrame(data["value"])
+
+                        df.columns = [str(c).upper() for c in df.columns]
+
+                        if "VALDATA" in df.columns and "VALVALOR" in df.columns:
+                            df["date"] = pd.to_datetime(
+                                df["VALDATA"], utc=True, errors="coerce"
+                            ).dt.tz_localize(None)
+                            df["val"] = pd.to_numeric(df["VALVALOR"], errors="coerce")
+
+                            df = df.dropna(subset=["date", "val"])
+
+                            df = df[["date", "val"]].set_index("date").sort_index()
+                            df = df[df.index >= pd.to_datetime(start_date)]
+                            if not df.empty:
+                                return df
+
+                print(
+                    "      [X] IPEADATA Error "
+                    f"{code}: Status {response.status_code} (attempt {attempt}/{self.MAX_RETRIES})"
+                )
+            except Exception as e:
+                print(
+                    f"      [X] IPEADATA Exception {code} (attempt {attempt}/{self.MAX_RETRIES}): {e}"
+                )
+            if attempt < self.MAX_RETRIES:
+                sleep_s = 2 * attempt
+                print(f"      [i] Retry in {sleep_s}s...")
+                import time
+
+                time.sleep(sleep_s)
             
         return pd.DataFrame() # Empty on failure
 
@@ -133,6 +145,8 @@ class BrazilMacroFetcher:
                 if not bcb_daily.empty:
                     bcb_data = bcb_daily
                     bcb_success = True
+                else:
+                    print("   [!] BCB retornou vazio. Tentando IPEADATA...")
             except Exception as e:
                 print(f"   [!] Falha BCB Primario (SGS): {e}. Tentando IPEADATA...")
         
@@ -162,11 +176,10 @@ class BrazilMacroFetcher:
             if c in bcb_data.columns:
                 bcb_data[c] = bcb_data[c] / 100.0
                 
-        # Merge Daily and Monthly BCB/IPEA data into bcb_data_final
-        # 2. PIB Data (SIDRA)
+        # 2. PIB & IPCA (SIDRA)
         print("   - IBGE: PIB Trimestral")
         pib_df = self._fetch_pib_trimestral(start_date)
-        ipca_df = pd.DataFrame() # Initialize empty for safety
+        ipca_df = self._fetch_ipca(start_date) if SIDRA_AVAILABLE else pd.DataFrame()
         
         # 3. Merge & Alignment
         # Começamos com um índice diário base
@@ -194,8 +207,7 @@ class BrazilMacroFetcher:
             
             macro_df = macro_df.join(pib_df, how='left')
             
-        # Note: IPCA logic removed here because it's now in bcb_data (via BCB 433 or IPEA Fallback)
-        # If we still want SIDRA IPCA redundancy, we could merge it if bcb 'ipca_mom' is missing.
+        # IPCA SIDRA redundancy if BCB/IPEA missing
         if 'ipca_mom' not in macro_df.columns and not ipca_df.empty:
              # Add SIDRA IPCA if BCB failed
              ipca_df.index = ipca_df.index + pd.DateOffset(months=1, days=10)
@@ -223,10 +235,11 @@ class BrazilMacroFetcher:
              # Better: Calculate on the non-NaN values of ipca_mom before ffill if possible.
              # But here we are after join.
              
-             # Let's try to calculate it simply:
-             # 1. Identify valid MoM dates (where value changes or is present)
-             # Actually, simpler: Just ensure we have it. If 0.00%, it's bad.
-             pass
+             monthly_ipca = macro_df['ipca_mom'].dropna().resample('M').last()
+             if not monthly_ipca.empty:
+                 ipca_12m = (1 + monthly_ipca).rolling(12).apply(np.prod, raw=True) - 1
+                 ipca_12m = ipca_12m.reindex(macro_df.index, method='ffill')
+                 macro_df['ipca_12m'] = ipca_12m.fillna(0.0)
              
         # Feature Engineering: Stationarity
             
@@ -236,6 +249,10 @@ class BrazilMacroFetcher:
         
         if macro_df.empty:
             print("[!] Macro DataFrame is empty after merge!")
+            cache_df = self._load_cache()
+            if cache_df is not None:
+                print("[i] Carregando macro_df do cache local.")
+                return cache_df
             return macro_df
             
         print(f"   [#] Macro Data Columns: {list(macro_df.columns)}")
@@ -301,6 +318,19 @@ class BrazilMacroFetcher:
         macro_df.to_csv(self.cache_path)
         
         return macro_df
+
+    def _load_cache(self) -> pd.DataFrame | None:
+        cache_path = Path(self.cache_path)
+        if not cache_path.exists():
+            return None
+        try:
+            cached = pd.read_csv(cache_path, index_col=0, parse_dates=True)
+            if cached.empty:
+                return None
+            return cached
+        except Exception as e:
+            print(f"[!] Falha ao carregar cache macro: {e}")
+            return None
 
     def _fetch_ipca(self, start_date) -> pd.DataFrame:
         try:

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Market Regime Dashboard Page (Track 3)
 ======================================
@@ -80,17 +81,23 @@ with st.spinner("Loading market & macro intelligence..."):
     prices, returns = load_data()
     macro_df = load_macro()
 
+if returns.empty:
+    st.error("No market data available for regime detection.")
+    st.stop()
+
 # Detect regimes
 with st.spinner("Fitting HMM..."):
     result = detect_regimes(returns, n_regimes, lookback)
 
-# --- MACRO LEDGER (The "RevNets" Style) ---
 st.divider()
 st.subheader("📑 The Macro Ledger")
 st.caption("Fundamental economic indicators (BCB/IBGE) | Source of Truth")
 
 # Prepare Ledger Data
-latest_macro = macro_df.iloc[-1]
+if macro_df.empty:
+    st.warning("Macro dataset unavailable. Showing market regimes only.")
+else:
+    latest_macro = macro_df.iloc[-1]
 # Calculate MoM/YoY where applicable or use pre-calculated columns
 # We have 'ipca_mom', 'pib_yoy', 'ibc_br_yoy'
 # Format for display: Indicator | Value | Trend | Context
@@ -130,36 +137,36 @@ def fmt_val(val, is_pct=True):
     return f"{val:.2%}" if is_pct else f"{val:.4f}"
 
 # Build rows
-ledger_items = [
-    ("SELIC (Meta)", latest_macro.get('selic', 0), "Cost of Capital", False),
-    ("IPCA (12m)", latest_macro.get('ipca_12m', 0), "Inflation", True), # High inflation usually bad (-), but color depends
-    ("IBC-Br (YoY)", latest_macro.get('ibc_br_yoy', 0), "Economic Activity", True),
-    ("PIB (YoY)", latest_macro.get('pib_yoy', 0), "GDP Growth", True),
-    ("USD/BRL", latest_macro.get('usd_brl', 0), "Exchange Rate", False),
-    ("Real Rates", latest_macro.get('juro_real', 0), "Selic - IPCA", True),
-]
+if not macro_df.empty:
+    ledger_items = [
+        ("SELIC (Meta)", latest_macro.get("selic", 0), "Cost of Capital", False),
+        ("IPCA (12m)", latest_macro.get("ipca_12m", 0), "Inflation", True),
+        ("IBC-Br (YoY)", latest_macro.get("ibc_br_yoy", 0), "Economic Activity", True),
+        ("PIB (YoY)", latest_macro.get("pib_yoy", 0), "GDP Growth", True),
+        ("USD/BRL", latest_macro.get("usd_brl", 0), "Exchange Rate", False),
+        ("Real Rates", latest_macro.get("juro_real", 0), "Selic - IPCA", True),
+    ]
 
-html_rows = ""
-for name, val, ctx, is_growth in ledger_items:
-    # Color logic: 
-    # Growth > 0 is good (Green). Inflation > Target (say 4.5%) is Bad (Red)? 
-    # Simplify: Positive numbers green, negative red? No.
-    # Selic high = Red (contractionary). Selic low = Green?
-    # Contextual coloring requires nuance.
-    # For "Ledger", let's stick to simple accounting style (Debit/Credit look).
-    val_class = "val-neu"
-    if is_growth:
-        val_class = "val-pos" if val > 0 else "val-neg"
-    
-    val_str = fmt_val(val, is_pct=(name != "USD/BRL"))
-    html_rows += f"<tr><td>{name}</td><td class='{val_class}'>{val_str}</td><td>{ctx}</td></tr>"
+    html_rows = ""
+    for name, val, ctx, is_growth in ledger_items:
+        val_class = "val-neu"
+        if is_growth:
+            val_class = "val-pos" if val > 0 else "val-neg"
 
-st.markdown(f"""
-<table class="ledger-table">
-    <thead><tr><th>Indicator</th><th>Value</th><th>Context</th></tr></thead>
-    <tbody>{html_rows}</tbody>
-</table>
-""", unsafe_allow_html=True)
+        val_str = fmt_val(val, is_pct=(name != "USD/BRL"))
+        html_rows += (
+            f"<tr><td>{name}</td><td class='{val_class}'>{val_str}</td><td>{ctx}</td></tr>"
+        )
+
+    st.markdown(
+        f"""
+    <table class="ledger-table">
+        <thead><tr><th>Indicator</th><th>Value</th><th>Context</th></tr></thead>
+        <tbody>{html_rows}</tbody>
+    </table>
+    """,
+        unsafe_allow_html=True,
+    )
 
 
 # --- MACRO TRENDS ---
@@ -167,32 +174,64 @@ st.subheader("📈 Digital Garden: Macro Trends")
 
 col_trend1, col_trend2 = st.columns(2)
 
-with col_trend1:
-    st.markdown("**Activity: GDP & IBC-Br**")
-    fig_act = go.Figure()
-    # Handle NaN in activity
-    act_df = macro_df[['ibc_br_yoy', 'pib_yoy']].dropna()
-    act_df = act_df.loc[act_df.index >= "2018-01-01"] # Zoom in
-    
-    fig_act.add_trace(go.Scatter(x=act_df.index, y=act_df['ibc_br_yoy'], name='IBC-Br (YoY)', line=dict(color='#205EA6')))
-    fig_act.add_trace(go.Scatter(x=act_df.index, y=act_df['pib_yoy'], name='PIB (YoY)', line=dict(color='#879A39', dash='dot')))
-    fig_act = make_flexoki_chart(fig_act)
-    fig_act.update_layout(height=300, showlegend=True, legend=dict(orientation="h", y=1.1))
-    st.plotly_chart(fig_act, use_container_width=True)
+if not macro_df.empty:
+    with col_trend1:
+        st.markdown("**Activity: GDP & IBC-Br**")
+        fig_act = go.Figure()
+        act_df = macro_df[["ibc_br_yoy", "pib_yoy"]].dropna()
+        act_df = act_df.loc[act_df.index >= "2018-01-01"]
 
-with col_trend2:
-    st.markdown("**Rates: Selic vs IPCA**")
-    fig_rates = go.Figure()
-    rates_df = macro_df[['selic', 'ipca_12m', 'juro_real']].dropna()
-    rates_df = rates_df.loc[rates_df.index >= "2018-01-01"]
-    
-    fig_rates.add_trace(go.Scatter(x=rates_df.index, y=rates_df['selic'], name='Selic', line=dict(color='#D14D41')))
-    fig_rates.add_trace(go.Scatter(x=rates_df.index, y=rates_df['ipca_12m'], name='IPCA 12m', line=dict(color='#100F0F', dash='dot')))
-    fig_rates.add_trace(go.Scatter(x=rates_df.index, y=rates_df['juro_real'], name='Real Rate', line=dict(color='#879A39'), fill='tozeroy', opacity=0.1))
-    
-    fig_rates = make_flexoki_chart(fig_rates)
-    fig_rates.update_layout(height=300, showlegend=True, legend=dict(orientation="h", y=1.1))
-    st.plotly_chart(fig_rates, use_container_width=True)
+        fig_act.add_trace(
+            go.Scatter(
+                x=act_df.index,
+                y=act_df["ibc_br_yoy"],
+                name="IBC-Br (YoY)",
+                line=dict(color="#205EA6"),
+            )
+        )
+        fig_act.add_trace(
+            go.Scatter(
+                x=act_df.index,
+                y=act_df["pib_yoy"],
+                name="PIB (YoY)",
+                line=dict(color="#879A39", dash="dot"),
+            )
+        )
+        fig_act = make_flexoki_chart(fig_act)
+        fig_act.update_layout(height=300, showlegend=True, legend=dict(orientation="h", y=1.1))
+        st.plotly_chart(fig_act, use_container_width=True)
+
+    with col_trend2:
+        st.markdown("**Rates: Selic vs IPCA**")
+        fig_rates = go.Figure()
+        rates_df = macro_df[["selic", "ipca_12m", "juro_real"]].dropna()
+        rates_df = rates_df.loc[rates_df.index >= "2018-01-01"]
+
+        fig_rates.add_trace(
+            go.Scatter(x=rates_df.index, y=rates_df["selic"], name="Selic", line=dict(color="#D14D41"))
+        )
+        fig_rates.add_trace(
+            go.Scatter(
+                x=rates_df.index,
+                y=rates_df["ipca_12m"],
+                name="IPCA 12m",
+                line=dict(color="#100F0F", dash="dot"),
+            )
+        )
+        fig_rates.add_trace(
+            go.Scatter(
+                x=rates_df.index,
+                y=rates_df["juro_real"],
+                name="Real Rate",
+                line=dict(color="#879A39"),
+                fill="tozeroy",
+                opacity=0.1,
+            )
+        )
+
+        fig_rates = make_flexoki_chart(fig_rates)
+        fig_rates.update_layout(height=300, showlegend=True, legend=dict(orientation="h", y=1.1))
+        st.plotly_chart(fig_rates, use_container_width=True)
 
 
 # --- CURRENT REGIME DISPLAY ---

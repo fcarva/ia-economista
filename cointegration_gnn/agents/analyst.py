@@ -167,11 +167,17 @@ class AnalystAgent:
         node_features_tensor = torch.tensor(node_features, dtype=torch.float)
         
         # 3. Construct PyG data object
-        combined_adjacency = combine_cointegration_and_causal_graphs(
-            self._current_adjacency,
-            self._current_causal,
-            alpha=0.5,
-        )
+        if self._current_adjacency is None:
+            combined_adjacency = None
+        else:
+            combined_adjacency = combine_cointegration_and_causal_graphs(
+                self._current_adjacency,
+                self._current_causal,
+                alpha=0.5,
+            )
+        
+        if combined_adjacency is None:
+            combined_adjacency = self._current_adjacency
         
         data = self.coint_graph.to_pyg_data(
             adjacency=combined_adjacency,
@@ -181,10 +187,10 @@ class AnalystAgent:
         
         # 4. Run GNN inference
         with torch.no_grad():
-            positions = self.model(data)
+            positions = self.model(data).detach().cpu()
         
         signals = {
-            ticker: float(pos)
+            ticker: float(max(-1.0, min(1.0, pos)))
             for ticker, pos in zip(self.tickers, positions.numpy())
         }
         

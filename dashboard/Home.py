@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
 from pathlib import Path
@@ -70,7 +71,7 @@ with st.sidebar:
 col_title, col_status = st.columns([3, 1])
 with col_title:
     st.title("AI Economist")
-    st.markdown("Multi-Asset Cointegration System")
+    st.markdown("Multi-Asset Cointegration Research Console")
 
 with col_status:
     # Status Pill Minimalista
@@ -93,7 +94,7 @@ st.markdown("######") # Spacer
 
 # 3. ACTION PIPELINE (The CTA Core)
 # Transformamos os módulos em um "Fluxo de Trabalho"
-st.subheader("Workflow Operations")
+st.subheader("Research Workflow")
 
 # Container unificado para o pipeline
 with st.container(border=True):
@@ -101,32 +102,32 @@ with st.container(border=True):
     
     # Step 1: Universe
     with cols[0]:
-        st.markdown("**1. Data Universe**")
-        st.caption("9 Assets • 2515 Days")
+        st.markdown("**1. Asset Universe**")
+        st.caption("IBOV Blue Chips • Diagnostics")
         if st.button("Inspect Assets", use_container_width=True):
-            st.switch_page("pages/1_Data_Universe.py")
+            st.switch_page("pages/01_Asset_Universe.py")
             
     # Step 2: Topology
     with cols[1]:
-        st.markdown("**2. Topology**")
-        st.caption("Granger-Lasso • Johansen")
+        st.markdown("**2. Causal Topology**")
+        st.caption("Lead-Lag • Cointegration")
         if st.button("View Network", use_container_width=True):
-            st.switch_page("pages/2_Causal_Network.py")
+            st.switch_page("pages/02_Causal_Topology.py")
             
     # Step 3: Inference (Primary CTA if model exists)
     with cols[2]:
-        st.markdown("**3. Inference**")
-        st.caption("GraphSAGE • Attention")
+        st.markdown("**3. Model Explainability**")
+        st.caption("GraphSAGE • GATv2")
         if st.button("Explain Logic", use_container_width=True):
-            st.switch_page("pages/4_Model_Insights.py")
+            st.switch_page("pages/04_Model_Insights.py")
             
     # Step 4: Execution (Ultimate Goal)
     with cols[3]:
-        st.markdown("**4. Execution**")
-        st.caption("Kelly Criterion • TWAP")
+        st.markdown("**4. Strategy Lab**")
+        st.caption("Backtest • Risk Metrics")
         # Botão Primário para destacar a ação final
         if st.button("Launch Simulation", type="primary", use_container_width=True):
-            st.switch_page("pages/3_Backtest_Lab.py")
+            st.switch_page("pages/03_Strategy_Backtest.py")
 
 st.markdown("######") # Spacer
 
