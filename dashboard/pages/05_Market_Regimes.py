@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Market Regime Dashboard Page (Track 3)
 ======================================

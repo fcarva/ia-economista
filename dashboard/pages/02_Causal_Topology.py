@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Causal Network Topology (Gitcoin-Style Force-Directed Graph)
 =============================================================
