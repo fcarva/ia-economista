@@ -29,7 +29,7 @@ st.markdown("### Lead-Lag Influence Structure (Research View)")
 with st.sidebar:
     st.header("⚙️ Graph Physics")
     # Tweak default threshold to be meaningful for daily returns
-    threshold = st.slider("Correlation Threshold (Lead-Lag)", 0.0, 0.5, 0.15, step=0.01)
+    threshold = st.slider("Correlation Threshold (Lead-Lag)", 0.0, 0.5, 0.10, step=0.01)
     physics_gravity = st.slider("Gravity (Clustering)", -5000, -100, -1200)
     node_size_scale = st.slider("Node Size Scale", 10, 100, 30)
     
@@ -166,12 +166,12 @@ if len(G.nodes) > 0:
     for u, v, d in G.edges(data=True):
         weight = d.get('weight', 0.1)
         # Width proportional to correlation
-        width = max(0.5, weight * 10)
+        width = max(1.5, weight * 12)
         
         edges.append(Edge(
             source=u,
             target=v,
-            color="#E6E4D9",  # Subtle edges
+            color="#6F6E69",  # Darker edges for visibility
             width=width,
             type="CURVE_SMOOTH" 
         ))
@@ -187,7 +187,7 @@ config = Config(
     highlightColor="#F7A7A6",
     collapsible=False,
     node={'labelProperty': 'label'},
-    link={'labelProperty': 'label', 'renderLabel': False},
+    link={'labelProperty': 'label', 'renderLabel': False, 'color': '#6F6E69'},
     # Physics engine properties
     gravity=physics_gravity, 
     minVelocity=0.75,
