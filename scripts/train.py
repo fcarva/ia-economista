@@ -100,7 +100,10 @@ def main():
     parser.add_argument("--turnover_penalty", type=float, default=0.5, help="Penalty for portfolio turnover")
     parser.add_argument("--learning_rate", type=float, default=default_config.gnn.learning_rate, help="Learning rate")
     parser.add_argument("--experiment_name", type=str, default="gnn_ibov_experiment", help="Name for the log folder")
-    parser.add_argument("--max_epochs", type=int, default=50, help="Maximum training epochs")
+    parser.add_argument("--max_epochs", type=int, default=80, help="Maximum training epochs")
+    parser.add_argument("--min_epochs", type=int, default=10, help="Minimum training epochs before early stop")
+    parser.add_argument("--early_stop_patience", type=int, default=12, help="Early stopping patience")
+    parser.add_argument("--gradient_clip", type=float, default=1.0, help="Gradient clipping value")
     # Date Args
     parser.add_argument("--train_start", type=str, default=str(default_config.data.train_start), help="Train start date (YYYY-MM-DD)")
     parser.add_argument("--train_end", type=str, default=str(default_config.data.train_end), help="Train end date (YYYY-MM-DD)")
@@ -187,13 +190,15 @@ def main():
         save_top_k=1
     )
     
-    early_stop = EarlyStopping(monitor='val/return', patience=15, mode='max')
+    early_stop = EarlyStopping(monitor='val/return', patience=args.early_stop_patience, mode='max')
     
     trainer = Trainer(
-        max_epochs=args.max_epochs, # [NEW] Use args
+        max_epochs=args.max_epochs,
+        min_epochs=args.min_epochs,
         callbacks=[checkpoint_callback, early_stop],
         logger=CSVLogger("logs", name=args.experiment_name), # [NEW] Use args
-        log_every_n_steps=10
+        log_every_n_steps=10,
+        gradient_clip_val=args.gradient_clip,
     )
     
     # 6. Fit
