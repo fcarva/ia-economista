@@ -31,7 +31,9 @@ export function renderIntro(s: IntroStatus): string {
   ];
   lines.push(`${t.muted("Camadas:")} ${parts.join(t.muted("  ·  "))}`);
 
-  if (!config.anthropicApiKey) {
+  if (config.mock) {
+    lines.push(t.yellow("⚠ DEXTER_MOCK=true — sem chamadas reais ao Claude, roteamento por palavra-chave."));
+  } else if (!config.anthropicApiKey) {
     lines.push(t.red("⚠ ANTHROPIC_API_KEY não definido — defina antes de perguntar."));
   }
   for (const w of s.warnings) lines.push(t.yellow(`⚠ ${w}`));

@@ -53,6 +53,8 @@ export class DexterAgent {
 
   /** Faz uma pergunta e retorna a resposta final (markdown). */
   async ask(userInput: string, hooks: AgentHooks = {}): Promise<string> {
+    if (config.mock) return this.mockAsk(userInput, hooks);
+
     const client = this.ensureClient();
     this.messages.push({ role: "user", content: userInput });
 
@@ -103,4 +105,79 @@ export class DexterAgent {
 
     return "Limite de passos atingido sem resposta final. Reformule a pergunta, por favor.";
   }
+
+  /**
+   * Modo dev sem créditos de API (DEXTER_MOCK=true): roteia por palavra-chave
+   * para as tools reais (macro/ações), sem passar pelo Claude. Serve para
+   * testar o wiring de ferramentas, o painel REST e a UI do terminal de graça.
+   */
+  private async mockAsk(userInput: string, hooks: AgentHooks): Promise<string> {
+    this.messages.push({ role: "user", content: userInput });
+    hooks.onGenerating?.();
+
+    const picks = pickMockTools(userInput, this.byName);
+    if (picks.length === 0) {
+      return [
+        "[MODO MOCK — sem chamada real ao Claude, DEXTER_MOCK=true]",
+        "",
+        "Nenhuma ferramenta correspondeu a esta pergunta no roteador simplificado.",
+        "Tente mencionar: selic, focus, ipca/inflação, pib, câmbio, ou um ticker da B3 (ex.: PETR4).",
+        "",
+        "Para respostas com raciocínio real, adicione créditos em console.anthropic.com,",
+        "defina ANTHROPIC_API_KEY e rode sem DEXTER_MOCK (ou DEXTER_MOCK=false).",
+      ].join("\n");
+    }
+
+    const parts: string[] = [];
+    for (const { name, args } of picks) {
+      const tool = this.byName.get(name);
+      if (!tool) continue;
+      const label = tool.label ? tool.label(args) : `${name}(${JSON.stringify(args)})`;
+      hooks.onToolStart?.(label, tool.source);
+
+      const t0 = Date.now();
+      let content: string;
+      let ok = true;
+      try {
+        content = await tool.run(args);
+      } catch (e) {
+        ok = false;
+        content = `ERRO: ${(e as Error).message}`;
+      }
+      hooks.onToolEnd?.(Date.now() - t0, ok);
+      parts.push(`**${label}**\n\`\`\`json\n${content}\n\`\`\``);
+    }
+
+    return [
+      "[MODO MOCK — sem chamada real ao Claude, DEXTER_MOCK=true]",
+      "Saída bruta das ferramentas (sem interpretação do modelo):",
+      "",
+      ...parts,
+    ].join("\n");
+  }
+}
+
+/** Roteador ingênuo por palavra-chave, só para o modo mock. */
+function pickMockTools(
+  userInput: string,
+  byName: Map<string, DexterTool>,
+): { name: string; args: Record<string, unknown> }[] {
+  const picks: { name: string; args: Record<string, unknown> }[] = [];
+  const lower = userInput.toLowerCase();
+
+  if (byName.has("bcb_focus__fetch_latest") && /selic|focus|inflaç|inflac|ipca|pib|câmbio|cambio|expectativ/.test(lower)) {
+    let endpoint = "ExpectativasMercadoSelic";
+    if (/ipca|inflaç|inflac/.test(lower)) endpoint = "ExpectativasMercadoInflacao12Meses";
+    else if (/\bpib\b/.test(lower)) endpoint = "ExpectativasMercadoPIB";
+    else if (/câmbio|cambio/.test(lower)) endpoint = "ExpectativasMercadoCambio";
+    picks.push({ name: "bcb_focus__fetch_latest", args: { endpoint } });
+  }
+
+  const tickerMatches = userInput.match(/\b[A-Z]{4}\d{1,2}\b/g);
+  if (byName.has("acoes_cotacao") && (tickerMatches?.length || /aç[aã]o|a[cç]oes|cota[cç][aã]o|ticker/.test(lower))) {
+    const tickers = tickerMatches?.length ? [...new Set(tickerMatches)].slice(0, 5) : ["PETR4", "VALE3"];
+    picks.push({ name: "acoes_cotacao", args: { tickers } });
+  }
+
+  return picks;
 }

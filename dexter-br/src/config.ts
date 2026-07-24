@@ -6,6 +6,8 @@ import { existsSync } from "node:fs";
 export interface DexterConfig {
   anthropicApiKey: string | undefined;
   model: string;
+  /** Modo dev sem créditos de API: pula o Claude e roteia por palavra-chave direto às tools. */
+  mock: boolean;
   brazilAgentPath: string | undefined;
   python: string;
   brapiToken: string | undefined;
@@ -28,6 +30,7 @@ export const config: DexterConfig = {
   anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   // Guia da skill claude-api: default para o modelo Claude mais capaz.
   model: process.env.DEXTER_MODEL || "claude-opus-4-8",
+  mock: (process.env.DEXTER_MOCK || "").toLowerCase() === "true",
   brazilAgentPath: firstExistingPath(
     process.env.BRAZIL_AGENT_PATH,
     "/workspace/brazil-agent",

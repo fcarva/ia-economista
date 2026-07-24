@@ -60,7 +60,7 @@ async function main(): Promise<void> {
         stdout.write(t.muted("(conversa reiniciada)\n\n"));
         continue;
       }
-      if (!config.anthropicApiKey) {
+      if (!config.mock && !config.anthropicApiKey) {
         stdout.write(t.red("ANTHROPIC_API_KEY não definido. Defina no ambiente e tente de novo.\n\n"));
         continue;
       }
