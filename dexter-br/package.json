@@ -14,11 +14,9 @@
     "smoke:equities": "bun run scripts/smoke-equities.ts"
   },
   "dependencies": {
-    "@langchain/anthropic": "^1.3.25",
-    "@langchain/core": "^1.1.36",
+    "@anthropic-ai/sdk": "^0.68.0",
     "chalk": "^5.6.2",
-    "yaml": "^2.8.1",
-    "zod": "^3.25.76"
+    "yaml": "^2.8.1"
   },
   "devDependencies": {
     "@types/bun": "^1.2.24",

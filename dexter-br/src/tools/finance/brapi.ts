@@ -74,6 +74,27 @@ function returnAndVol(hist: HistPoint[] | undefined): { ret: number | null; vol:
   return { ret, vol };
 }
 
+export interface CloseSeries {
+  ticker: string;
+  dates: number[];
+  closes: number[];
+}
+
+/** Busca séries de fechamento (para análises quant). */
+export async function fetchCloses(
+  tickers: string[],
+  range = "1y",
+  interval = "1d",
+): Promise<CloseSeries[]> {
+  const results = await brapiGet(`/quote/${tickers.join(",")}`, { range, interval });
+  return results.map((r) => {
+    const hist = (r.historicalDataPrice ?? []).filter(
+      (h) => typeof h.close === "number" && h.close > 0,
+    );
+    return { ticker: r.symbol, dates: hist.map((h) => h.date), closes: hist.map((h) => h.close) };
+  });
+}
+
 export function equitiesTools(): DexterTool[] {
   const universe = config.b3Universe;
 

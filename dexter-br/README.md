@@ -6,8 +6,13 @@ com estética **Flexoki Light** (fundo papel, tinta escura, números coloridos) 
 **tabelas quadradas** (box-drawing) estilo terminal.
 
 Cobre **macro** (Selic, IPCA, câmbio, PIB, atividade, emprego, **expectativas do
-Focus**, econometria) via o motor [`brazil-agent`](https://github.com/fcarva/brazil-agent)
-e **ações da B3** (cotações, fundamentos, screening) via [brapi.dev](https://brapi.dev).
+Focus**, econometria) via o motor [`brazil-agent`](https://github.com/fcarva/brazil-agent),
+**ações da B3** (cotações, fundamentos, screening) via [brapi.dev](https://brapi.dev),
+**pares/cointegração** de ações, **busca na web** (Tavily/Exa) e um **painel de
+KPIs** via a API REST do brazil-agent. Reaproveita as **skills** do brazil-agent
+(metodologia macro/econometria/comunicação) com progressive disclosure.
+
+Protótipo direto sobre o **SDK oficial** `@anthropic-ai/sdk` (sem LangChain).
 
 ```
 ❯ Qual a expectativa do Focus para Selic e IPCA?
@@ -49,8 +54,10 @@ bun start
 | `DEXTER_MODEL` | não | Modelo Claude. Default `claude-opus-4-8`. Ex.: `claude-sonnet-5`. |
 | `BRAZIL_AGENT_PATH` | não | Caminho do repo `brazil-agent` (ativa a camada macro). |
 | `DEXTER_PYTHON` | não | Executável Python (default `python3`). |
-| `BRAPI_TOKEN` | não | Token brapi.dev (mais requisições de ações). |
-| `TAVILY_API_KEY` | não | (Futuro) busca na web. |
+| `BRAPI_TOKEN` | não | Token brapi.dev (ações + cointegração). |
+| `TAVILY_API_KEY` | não | Ativa `busca_web` (Tavily). |
+| `EXA_API_KEY` | não | Ativa `busca_web` (Exa), se não houver Tavily. |
+| `DEXTER_MACRO_API` | não | URL da REST do brazil-agent (default `http://localhost:8000`). |
 
 ## Camada macro (bridge MCP → `brazil-agent`)
 
@@ -81,6 +88,31 @@ Via [brapi.dev](https://brapi.dev): `acoes_cotacao`, `acoes_fundamentos`,
 `acoes_screening` (universo padrão = blue chips PETR4, VALE3, ITUB4, BBDC4,
 ABEV3, B3SA3, WEGE3, RENT3, BBAS3). `BRAPI_TOKEN` é opcional (aumenta o limite).
 
+## Cointegração / pares (quant)
+
+`cointegracao_b3` — hedge ratio (OLS), correlação de retornos, **meia-vida de
+reversão à média** (AR1) e z-score do spread para pares da B3. Heurística de
+pairs trading em TS puro (dados brapi); para teste formal de Johansen, use o
+servidor de econometria do brazil-agent.
+
+## Busca na web
+
+`busca_web` — Tavily ou Exa (gated por `TAVILY_API_KEY`/`EXA_API_KEY`). Notícias,
+Copom, fatos relevantes — com citação das fontes.
+
+## Painel de KPIs (REST do brazil-agent)
+
+Se `python api_server.py` estiver rodando (`DEXTER_MACRO_API`), ativa
+`painel_kpis`, `indicadores_lista` e `indicador_serie` sobre os dados
+pré-computados do brazil-agent.
+
+## Skills
+
+Reaproveita `brazil-agent/skills/*/SKILL.md` (macro-data-sources,
+econometric-analysis, economic-communication, data-quality-validation,
+macro-forecasting, mcp-operations). O nome+descrição vão pro system prompt e a
+tool `carregar_skill` traz o guia completo sob demanda.
+
 ## Comandos do REPL
 
 - `/limpar` — reinicia a conversa.
@@ -95,13 +127,17 @@ dexter-br/
 │   ├── config.ts              # env + universo B3
 │   ├── theme.ts               # paleta Flexoki + OSC (papel/tinta)
 │   ├── agent/
-│   │   ├── agent.ts           # loop de tool-use (LangChain + Claude)
+│   │   ├── agent.ts           # loop de tool-use (@anthropic-ai/sdk + Claude)
 │   │   ├── prompts.ts         # system prompt PT-BR
 │   │   └── types.ts           # contrato de ferramenta
+│   ├── skills/loader.ts       # skills do brazil-agent (carregar_skill)
 │   ├── tools/
-│   │   ├── registry.ts        # macro + ações
+│   │   ├── registry.ts        # ações + quant + web + macro + REST + skills
 │   │   ├── macro/mcp-bridge.ts# bridge JSON-RPC p/ servidores Python
-│   │   └── finance/brapi.ts   # ações B3 (brapi.dev)
+│   │   ├── macro/rest-panel.ts# painel de KPIs (REST FastAPI)
+│   │   ├── finance/brapi.ts   # ações B3 (brapi.dev)
+│   │   ├── quant/cointegration.ts # pares/cointegração
+│   │   └── search/web-search.ts   # Tavily/Exa
 │   ├── components/            # intro, tool-event, answer (box tables)
 │   └── utils/                 # box-table, format (pt-BR)
 └── scripts/                   # smoke tests (sem LLM)
@@ -116,7 +152,7 @@ bun run smoke:macro      # bridge MCP (requer BRAZIL_AGENT_PATH + deps)
 
 ## Notas
 
-- **Modelo padrão:** `claude-opus-4-8` (via SDK `@langchain/anthropic`).
+- **Modelo padrão:** `claude-opus-4-8` (via SDK oficial `@anthropic-ai/sdk`, loop de tool-use manual + streaming).
 - **Tema:** usa OSC 10/11 para deixar o terminal papel/tinta (Flexoki Light) em
   terminais que suportam; as cores dos números vêm do `chalk` (truecolor).
 - Inspirado no [Dexter](https://github.com/virattt/dexter) (virattt) e na paleta

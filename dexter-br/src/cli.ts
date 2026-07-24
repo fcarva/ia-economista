@@ -16,8 +16,8 @@ async function main(): Promise<void> {
   enterTheme();
   stdout.write(t.muted("carregando ferramentas (macro + ações)…\n"));
 
-  const { tools, servers, warnings } = await assembleTools();
-  const macroCount = tools.filter((tool) => tool.source && tool.source !== "brapi").length;
+  const set = await assembleTools();
+  const { tools, servers, warnings, skillsSummary } = set;
 
   let closed = false;
   const cleanup = () => {
@@ -28,9 +28,18 @@ async function main(): Promise<void> {
   };
   process.on("exit", cleanup);
 
-  stdout.write(renderIntro(warnings, tools.length, macroCount));
+  stdout.write(
+    renderIntro({
+      warnings,
+      toolCount: tools.length,
+      macroCount: set.macroCount,
+      skillCount: set.skillCount,
+      restOnline: set.restOnline,
+      webProvider: set.webProvider,
+    }),
+  );
 
-  let agent = new DexterAgent(tools);
+  const agent = new DexterAgent(tools, skillsSummary);
   const rl = readline.createInterface({ input: stdin, output: stdout });
   rl.on("SIGINT", () => {
     rl.close();
@@ -47,7 +56,7 @@ async function main(): Promise<void> {
       if (!q) continue;
       if (q === "/sair" || q === "/quit" || q === "/exit") break;
       if (q === "/limpar") {
-        agent = new DexterAgent(tools);
+        agent.reset();
         stdout.write(t.muted("(conversa reiniciada)\n\n"));
         continue;
       }

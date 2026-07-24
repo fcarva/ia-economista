@@ -10,6 +10,9 @@ export interface DexterConfig {
   python: string;
   brapiToken: string | undefined;
   tavilyApiKey: string | undefined;
+  exaApiKey: string | undefined;
+  /** URL da API REST do brazil-agent (painel de KPIs). */
+  macroApiUrl: string;
   /** Universo padrão de blue chips da B3 (de cointegration_gnn/config.py). */
   b3Universe: string[];
 }
@@ -32,6 +35,8 @@ export const config: DexterConfig = {
   python: process.env.DEXTER_PYTHON || "python3",
   brapiToken: process.env.BRAPI_TOKEN,
   tavilyApiKey: process.env.TAVILY_API_KEY,
+  exaApiKey: process.env.EXA_API_KEY,
+  macroApiUrl: process.env.DEXTER_MACRO_API || "http://localhost:8000",
   b3Universe: [
     "PETR4",
     "VALE3",
