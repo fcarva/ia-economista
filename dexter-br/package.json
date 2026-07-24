@@ -1,0 +1,28 @@
+{
+  "name": "dexter-br",
+  "version": "0.1.0",
+  "description": "Dexter BR — assistente de pesquisa financeira do Brasil no terminal (macro + ações), estilo Dexter, tema Flexoki Light.",
+  "type": "module",
+  "bin": {
+    "dexter-br": "./src/cli.ts"
+  },
+  "scripts": {
+    "start": "bun run src/cli.ts",
+    "dev": "bun --watch run src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "smoke:macro": "bun run scripts/smoke-macro.ts",
+    "smoke:equities": "bun run scripts/smoke-equities.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.68.0",
+    "chalk": "^5.6.2",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.24",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "bun": ">=1.1.0"
+  }
+}
